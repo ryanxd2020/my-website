@@ -1,14 +1,391 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>My Website</title>
+    <meta charset="UTF-8">
+    <title>Bird Game</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        html, body {
+            margin: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background: #87ceeb;
+        }
+
+        #game {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background: linear-gradient(#65c7ff, #dff7ff);
+        }
+
+        #credit {
+            position: absolute;
+            top: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+            font-size: 13px;
+            color: rgba(0,0,0,0.65);
+            letter-spacing: 1px;
+        }
+
+        #bird {
+            position: absolute;
+            width: 45px;
+            height: 45px;
+            background: #ffd21c;
+            border-radius: 50%;
+            left: 150px;
+            top: 250px;
+            z-index: 10;
+        }
+
+        #bird::before {
+            content: "";
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: black;
+            border-radius: 50%;
+            right: 9px;
+            top: 10px;
+        }
+
+        #bird::after {
+            content: "";
+            position: absolute;
+            width: 18px;
+            height: 10px;
+            background: orange;
+            right: -12px;
+            top: 20px;
+            clip-path: polygon(0 0, 100% 50%, 0 100%);
+        }
+
+        .pipe {
+            position: absolute;
+            width: 70px;
+            background: #20a83a;
+            border: 4px solid #16752a;
+        }
+
+        .pipe.top {
+            top: 0;
+        }
+
+        .pipe.bottom {
+            bottom: 0;
+        }
+
+        #score {
+            position: absolute;
+            top: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 32px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 2px 2px 4px #000;
+            z-index: 20;
+        }
+
+        #youtubeBox {
+            position: absolute;
+            right: 15px;
+            top: 15px;
+            z-index: 30;
+            background: rgba(255,255,255,0.9);
+            padding: 10px;
+            border-radius: 10px;
+        }
+
+        #youtubeBox input {
+            width: 220px;
+            padding: 7px;
+            border: 1px solid #aaa;
+            border-radius: 5px;
+        }
+
+        #youtubeBox button {
+            padding: 7px 10px;
+            margin-top: 5px;
+            cursor: pointer;
+        }
+
+        #youtubeFrame {
+            display: none;
+            width: 300px;
+            height: 170px;
+            margin-top: 8px;
+            border: none;
+        }
+
+        #gameOver {
+            display: none;
+            position: absolute;
+            inset: 0;
+            z-index: 40;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            background: rgba(0,0,0,0.45);
+            color: white;
+        }
+
+        #gameOver h1 {
+            font-size: 50px;
+            margin: 10px;
+        }
+
+        #restart {
+            padding: 12px 25px;
+            font-size: 18px;
+            cursor: pointer;
+            border: none;
+            border-radius: 8px;
+        }
+    </style>
 </head>
+
 <body>
 
-    <h1>bro ryan made this im very tuff bro bro bro</h1>
-    <p>yo this is so cool bro bro</p>
+<div id="game">
 
-    <button onclick="alert('BRO!')">Click me</button>
+    <div id="credit">made by ryan aura</div>
+
+    <div id="score">0</div>
+
+    <div id="bird"></div>
+
+    <!-- YouTube selector -->
+    <div id="youtubeBox">
+        <div>youtube video:</div>
+        <input
+            id="youtubeInput"
+            placeholder="paste YouTube link"
+        >
+        <br>
+        <button id="youtubeButton">show video</button>
+
+        <iframe
+            id="youtubeFrame"
+            allowfullscreen>
+        </iframe>
+    </div>
+
+    <div id="gameOver">
+        <h1>GAME OVER</h1>
+        <button id="restart">Restart</button>
+    </div>
+
+</div>
+
+<script>
+    const game = document.getElementById("game");
+    const bird = document.getElementById("bird");
+    const scoreText = document.getElementById("score");
+    const gameOverScreen = document.getElementById("gameOver");
+    const restartButton = document.getElementById("restart");
+
+    let birdX = 150;
+    let birdY = 250;
+
+    let velocity = 0;
+
+    // VERY LOW GRAVITY
+    const gravity = 0.12;
+
+    // Jump strength
+    const flapPower = -4.5;
+
+    let gameRunning = true;
+    let score = 0;
+
+    let pipes = [];
+    let pipeTimer = 0;
+
+    function flap() {
+        if (!gameRunning) return;
+
+        velocity = flapPower;
+    }
+
+    document.addEventListener("keydown", function(event) {
+        if (event.code === "Space" || event.code === "ArrowUp") {
+            event.preventDefault();
+            flap();
+        }
+    });
+
+    document.addEventListener("click", function(event) {
+        if (
+            event.target.tagName !== "BUTTON" &&
+            event.target.tagName !== "INPUT"
+        ) {
+            flap();
+        }
+    });
+
+    function createPipe() {
+        const gap = 220;
+
+        const minTop = 80;
+        const maxTop = game.clientHeight - gap - 120;
+
+        const topHeight =
+            Math.random() * (maxTop - minTop) + minTop;
+
+        const topPipe = document.createElement("div");
+        topPipe.className = "pipe top";
+
+        topPipe.style.height = topHeight + "px";
+        topPipe.style.left = game.clientWidth + "px";
+
+        const bottomPipe = document.createElement("div");
+        bottomPipe.className = "pipe bottom";
+
+        bottomPipe.style.height =
+            (game.clientHeight - topHeight - gap) + "px";
+
+        bottomPipe.style.left = game.clientWidth + "px";
+
+        game.appendChild(topPipe);
+        game.appendChild(bottomPipe);
+
+        pipes.push({
+            top: topPipe,
+            bottom: bottomPipe,
+            x: game.clientWidth,
+            passed: false
+        });
+    }
+
+    function collision(a, b) {
+        const ar = a.getBoundingClientRect();
+        const br = b.getBoundingClientRect();
+
+        return (
+            ar.left < br.right &&
+            ar.right > br.left &&
+            ar.top < br.bottom &&
+            ar.bottom > br.top
+        );
+    }
+
+    function endGame() {
+        gameRunning = false;
+        gameOverScreen.style.display = "flex";
+    }
+
+    function update() {
+        if (!gameRunning) return;
+
+        // LOW GRAVITY
+        velocity += gravity;
+        birdY += velocity;
+
+        bird.style.left = birdX + "px";
+        bird.style.top = birdY + "px";
+
+        // Don't let the bird leave the screen
+        if (birdY < 0) {
+            birdY = 0;
+            velocity = 0;
+        }
+
+        if (birdY + bird.offsetHeight > game.clientHeight) {
+            endGame();
+            return;
+        }
+
+        pipeTimer++;
+
+        if (pipeTimer > 120) {
+            createPipe();
+            pipeTimer = 0;
+        }
+
+        for (let i = pipes.length - 1; i >= 0; i--) {
+            const pipe = pipes[i];
+
+            pipe.x -= 2.5;
+
+            pipe.top.style.left = pipe.x + "px";
+            pipe.bottom.style.left = pipe.x + "px";
+
+            if (
+                collision(bird, pipe.top) ||
+                collision(bird, pipe.bottom)
+            ) {
+                endGame();
+                return;
+            }
+
+            if (!pipe.passed && pipe.x + 70 < birdX) {
+                pipe.passed = true;
+                score++;
+                scoreText.textContent = score;
+            }
+
+            if (pipe.x < -100) {
+                pipe.top.remove();
+                pipe.bottom.remove();
+                pipes.splice(i, 1);
+            }
+        }
+
+        requestAnimationFrame(update);
+    }
+
+    restartButton.addEventListener("click", function() {
+        location.reload();
+    });
+
+    // YouTube video
+    document.getElementById("youtubeButton")
+        .addEventListener("click", function() {
+
+        const input =
+            document.getElementById("youtubeInput").value.trim();
+
+        let videoId = "";
+
+        try {
+            const url = new URL(input);
+
+            if (url.hostname.includes("youtu.be")) {
+                videoId = url.pathname.substring(1);
+            } else if (url.hostname.includes("youtube.com")) {
+                videoId = url.searchParams.get("v");
+            }
+        } catch {
+            videoId = "";
+        }
+
+        if (videoId) {
+            const frame =
+                document.getElementById("youtubeFrame");
+
+            frame.src =
+                "https://www.youtube.com/embed/" +
+                videoId;
+
+            frame.style.display = "block";
+        } else {
+            alert("Paste a valid YouTube link.");
+        }
+    });
+
+    update();
+</script>
 
 </body>
 </html>
